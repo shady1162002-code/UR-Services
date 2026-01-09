@@ -1,0 +1,90 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  conversations Conversation[]
+  customers    Customer[]
+
+  @@map("companies")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("AGENT") // "ADMIN" or "AGENT"
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@map("users")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  deviceId  String?  // Device ID to track returning customers
+  blocked   Boolean  @default(false) // Blocked customers cannot send messages
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@map("customers")
+  @@index([companyId, deviceId])
+  @@index([companyId, email])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  companyId String
+  customerId String
+  userId    String?  // Assigned employee
+  status   String   @default("OPEN") // "OPEN", "ASSIGNED", or "CLOSED"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company    Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages   Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String      @id @default(cuid())
+  conversationId String
+  senderType     String      // "CUSTOMER" or "EMPLOYEE"
+  senderId       String?     // User ID if from employee, null if from customer
+  content        String
+  imageUrl       String?     // URL to uploaded image
+  createdAt      DateTime    @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
